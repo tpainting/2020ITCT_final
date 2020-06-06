@@ -1,6 +1,7 @@
 from lib import *
 import numpy as np
 import cv2
+import sys
 
 def Encrypt(A):
     # Step 1
@@ -57,7 +58,11 @@ def Encrypt(A):
             C[:, i] = (R[:, i]+d*C[:, i-1]+d*K[:, i]+K[:, d]) % 256
     return C
 if __name__ == '__main__':
-    A = cv2.imread('./img/test_lena_256.bmp', cv2.IMREAD_GRAYSCALE)
+    if len(sys.argv) >= 2:
+        filename = sys.argv[1]
+    else:
+        filename = './img/test_lena_256.bmp'
+    A = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
     # 2 rounds
     C = Encrypt(A)
     C = Encrypt(C)
