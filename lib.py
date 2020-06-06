@@ -22,6 +22,7 @@ def LASM2D(mu, x0, y0, ret_num, skip_num=200):
 
 def Entropy(seq, size=256):
     # grayscale
+    seq = seq.flatten()
     prob = np.zeros(size)
     for pixel in seq:
         prob[pixel] += 1
