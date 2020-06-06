@@ -18,7 +18,7 @@ def Decrypt(C):
             d = np.ceil(Entropy(R[:, i+1:])*(10**14)) % n
             d = d.astype(int)
         else:
-            d = 0
+            d = 1
         if i == 0:
             R[:, i] = (C[:, i]-d*K[:, i]-K[:, d]) % 256
         else:

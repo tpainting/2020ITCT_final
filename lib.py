@@ -54,5 +54,6 @@ def Uniq(seq):
                 min_num += 1
 
 if __name__ == '__main__':
-    img = ReadImage("./img/test_lena_256.bmp")
+    import cv2
+    img = cv2.imread("./img/test_lena_256.bmp", cv2.IMREAD_GRAYSCALE)
     print(Entropy(img))
