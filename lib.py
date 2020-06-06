@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from scipy.stats import entropy
+from skimage.measure import shannon_entropy
 
 # secret key
 x0, y0, xp0, yp0 = 0.0056, 0.3678, 0.6229, 0.7676
@@ -20,14 +21,9 @@ def LASM2D(mu, x0, y0, ret_num, skip_num=200):
     ret_seq = ret_seq[:ret_num]
     return np.array(ret_seq)
 
-def Entropy(seq, size=256):
+def Entropy(seq):
     # grayscale
-    seq = seq.flatten()
-    prob = np.zeros(size)
-    for pixel in seq:
-        prob[pixel] += 1
-    prob /= len(seq)
-    return entropy(prob, base=2)
+    return shannon_entropy(seq)
 
 def UpdateKey1(x0, y0, xp0, yp0, s):
     x_bar0 = (x0+(s+1)/(s+xp0+yp0+1))%1
@@ -56,5 +52,5 @@ def Uniq(seq):
 
 if __name__ == '__main__':
     import cv2
-    img = cv2.imread("./img/test_lena_256.bmp", cv2.IMREAD_GRAYSCALE)
+    img = cv2.imread("./img/decrypt.bmp", cv2.IMREAD_GRAYSCALE)
     print(Entropy(img))
