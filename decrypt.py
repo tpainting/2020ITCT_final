@@ -33,7 +33,7 @@ def Decrypt(C):
 
     # Step 4
     
-    s = Entropy(B.flatten())
+    s = Entropy(B)
     x_0, y_0 = UpdateKey1(x0, y0, xp0, yp0, s)
     P_seq = LASM2D(mu, x_0, y_0, m*n)
     P = P_seq.reshape(C.shape)

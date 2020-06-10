@@ -6,7 +6,7 @@ import sys
 def Encrypt(A):
     # Step 1
     (m, n) = A.shape
-    s = Entropy(A.flatten())
+    s = Entropy(A)
 
     x_0, y_0 = UpdateKey1(x0, y0, xp0, yp0, s)
     P_seq = LASM2D(mu, x_0, y_0, m*n)
