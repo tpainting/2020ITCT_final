@@ -34,7 +34,7 @@ def Encrypt(A):
     W = np.zeros(A.shape, dtype='uint8')
     for i in range(m):
         for j in range(n):
-            W[i][j] = (m*n+i+j) % 256
+            W[i][j] = (m*n+(i+1)+(j+1)) % 256
     R = (B+W) % 256
 
     # Step 4
@@ -51,11 +51,11 @@ def Encrypt(A):
             d = np.ceil(Entropy(R[:, i+1:])*(10**14)) % n
             d = d.astype(int)
         else:
-            d = 1
+            d = 0
         if i == 0:
-            C[:, i] = (R[:, i]+d*K[:, i]+K[:, d]) % 256
+            C[:, i] = (R[:, i]+(d+1)*K[:, i]+K[:, d]) % 256
         else:
-            C[:, i] = (R[:, i]+d*C[:, i-1]+d*K[:, i]+K[:, d]) % 256
+            C[:, i] = (R[:, i]+(d+1)*C[:, i-1]+(d+1)*K[:, i]+K[:, d]) % 256
     return C
 if __name__ == '__main__':
     if len(sys.argv) >= 2:

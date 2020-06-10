@@ -18,17 +18,17 @@ def Decrypt(C):
             d = np.ceil(Entropy(R[:, i+1:])*(10**14)) % n
             d = d.astype(int)
         else:
-            d = 1
+            d = 0
         if i == 0:
-            R[:, i] = (C[:, i]-d*K[:, i]-K[:, d]) % 256
+            R[:, i] = (C[:, i]-(d+1)*K[:, i]-K[:, d]) % 256
         else:
-            R[:, i] = (C[:, i]-d*C[:, i-1]-d*K[:, i]-K[:, d]) % 256
+            R[:, i] = (C[:, i]-(d+1)*C[:, i-1]-(d+1)*K[:, i]-K[:, d]) % 256
 
     # Step 3
     W = np.zeros(C.shape, dtype='uint8')
     for i in range(m):
         for j in range(n):
-            W[i][j] = (m*n+i+j) % 256
+            W[i][j] = (m*n+(i+1)+(j+1)) % 256
     B = (R-W) % 256
 
     # Step 4
