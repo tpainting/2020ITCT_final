@@ -22,11 +22,9 @@ def LASM2D(mu, x0, y0, ret_num, skip_num=200):
     return np.array(ret_seq)
 
 def Entropy(img):
-    seq = img.flatten()
     # grayscale
-    value,counts = np.unique(seq, return_counts=True)
-    probs = counts / len(seq)
-    return entropy(probs, base=2)
+    value,counts = np.unique(img, return_counts=True)
+    return entropy(counts, base=2)
 
 def UpdateKey1(x0, y0, xp0, yp0, s):
     x_bar0 = (x0+(s+1)/(s+xp0+yp0+1))%1
