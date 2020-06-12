@@ -1,37 +1,127 @@
 import cv2
 import numpy as np
-from scipy.stats import entropy
 
 from lib import *
 from encrypt import Encrypt
 
-np.random.seed(7122)
 
+def FindSmallNumber(seq):
+    if np.sum(seq) == 0:
+        print('ALL ZERO!!!')
+        return -1
+    while True:
+        mask = seq % 2
+        if np.sum(mask) != 0:
+            min_value = np.min(seq[mask.nonzero()])
+            return np.where(seq == min_value)[0][0]
+        seq = seq // 2
 
-def GenRandomImage(origin_img):
-    (M, N) = origin_img.shape
-    random_img = np.zeros(M*N, dtype=origin_img.dtype)
-    cnt = np.zeros(256, dtype=int)
-    for x in origin_img.flatten():
-        cnt[x] += 1
-    np.random.shuffle(cnt)
-    p = 0
-    for x in range(256):
-        for c in range(cnt[x]):
-            random_img[p] = x
-            p += 1
-    np.random.shuffle(random_img)
-    random_img = random_img.reshape(M, N)
-    return random_img
+def ConstructQ():
+    Q = np.zeros((256, 256), dtype=int)
+    for i in range(1, 256):
+        for j in range(1, 256):
+            if i == j:
+                Q[i,j] = 1
+            if FindSmallNumber(np.array([i, j])) == 1 or j % 2 == 1:
+                for q in range(256):
+                    if i == (q * j) % 256:
+                        Q[i,j] = q
+    return Q
 
-def GetR(A):
+Q = ConstructQ()
+print('ConstructQ finished.')
+
+### Solve x from Ax = B
+def GaussianEliminationSolve(A, B, X, p_start):
+    A_M, A_N = A.shape
+    assert(A_M == A_N)
+    B_M = B.shape[0]
+    assert(A_M == B_M)
+    N = A_N
+
+    ### Gaussian elimination
+    for i in range(p_start+1):
+        ### Find denominator
+        pos = i + FindSmallNumber(A[i:,i])
+        # print('FindSmallNumber:', pos)
+        if pos == i - 1:
+            # print('Gaussian elimination failed due to all-zero column')
+            # return A, B, X, p_start
+            print('Gaussian elimination encounter all-zero column, continue ...')
+            continue
+        ### Move the denominator row to row i
+        A[[i, pos]] = A[[pos, i]]
+        B[[i, pos]] = B[[pos, i]]
+        ### Substract each row below with the denominator row
+        for j in range(i+1, N):
+            if A[j,i] != 0:
+                # m = -1
+                # for q in range(256):
+                #     if A[i,i] * q % 256 == A[j,i]:
+                #         m = q
+                #         break
+                # if m == -1:
+                #     print('Can\'t find multiplier', A[i,i], A[j,i])
+                #     exit()
+                m = Q[A[j,i],A[i,i]]
+                if m == 0:
+                    print('multiplier equals to 0!', A[j,i], A[i,i])
+                    exit()
+                A[j,:] = (A[j,:] - A[i,:] * m) % 256
+                B[j,:] = (B[j,:] - B[i,:] * m) % 256
+
+    ### Solve upper triangular matrix
+    for i in reversed(range(p_start+1)):
+        a = A[i,i]
+        b = (B[i,:] - np.dot(A[i,:], X)) % 256
+        ### if a is even, then there are multiple solutions
+        if a % 2 == 0:
+            return A, B, X, i
+        ### solve x in ax = b
+        # for x in range(256):
+            # if (a * x) % 256 == b:
+                # X[i] = x
+                # break
+        X[i,:] = Q[b,a]
+    
+    return A, B, X, -1
+
+### Retrieve equation system from R and C
+def RetrieveEquations(R, C):
+    R_M, R_N = R.shape
+    C_M, C_N = C.shape
+    assert(R_M == C_M and R_N == C_N)
+    N = R_N
+
+    A = np.zeros((N, N), dtype=int)
+    B = np.zeros((N, M), dtype=int)
+    for i in reversed(range(N)):
+        ### Retrieve d
+        if i == N - 1:
+            d = 0
+        else:
+            d = np.ceil(Entropy(R[:,i+1:]) * (10 ** 14)) % N
+            d = d.astype(int)
+        A[i,i] += d + 1
+        A[i,d] += 1
+        ### Retrieve D
+        if i == 0:
+            B[i,:] = (C[:,i] - R[:,i]) % 256
+        else:
+            B[i,:] = (C[:,i] - R[:,i] - (d + 1) * C[:,i-1]) % 256
+
+    A, B = A % 256, B % 256
+
+    return A, B
+
+def GetR(I):
     # Step 1
-    (m, n) = A.shape
-    s = Entropy(A)
+    (m, n) = I.shape
+    s = Entropy(I)
 
     x_0, y_0 = UpdateKey1(x0, y0, xp0, yp0, s)
     P_seq = LASM2D(mu, x_0, y_0, m*n)
-    P = P_seq.reshape(A.shape)
+    P = P_seq.reshape(I.shape)
 
     # Step 2
     a = np.ceil((x0+y0+1)*(10**7)) % (m)
@@ -44,156 +134,94 @@ def GetR(A):
     vp = vp.astype(int)
     Uniq(up)
     Uniq(vp)
-    B = np.zeros(A.shape, dtype='uint8')
-    tmp = np.zeros(A.shape, dtype='uint8')
+    B = np.zeros(I.shape, dtype='uint8')
+    tmp = np.zeros(I.shape, dtype='uint8')
     for i in range(n):
-        tmp[:, up[i]] = A[:, i]
+        tmp[:, up[i]] = I[:, i]
     for i in range(m):
         B[vp[i], :] = tmp[i, :]
     
     # Step 3
-    W = np.zeros(A.shape, dtype='uint8')
+    W = np.zeros(I.shape, dtype='uint8')
     for i in range(m):
         for j in range(n):
             W[i][j] = (m*n+(i+1)+(j+1)) % 256
     R = (B+W) % 256
+    
     return R
 
-def GetK(A):
-    (m, n) = A.shape
+def GetK(I):
+    (m, n) = I.shape
     xp_0, yp_0 = UpdateKey2(x0, y0, xp0, yp0)
     K_seq = LASM2D(mu, xp_0, yp_0, m*n)
-    K = K_seq.reshape(A.shape)
+    K = K_seq.reshape(I.shape)
     K = np.ceil(K*(10**14)) % 256
     K = K.astype('uint8')
+    
     return K
 
-Q = np.zeros((256, 256), dtype=int)
-for i in range(1, 256):
-    for j in range(1, 256):
-        for q in range(1, 256):
-            if (i + q * 256) % j == 0:
-                Q[i, j] = ((i + q * 256) // j) % 256
+def GenerateRandomImage(I):
+    M, N = I.shape
+    Ip = np.zeros(M * N, dtype=I.dtype)
+    cnt = np.zeros(256, dtype=int)
+    for x in I.flatten():
+        cnt[x] += 1
+    np.random.shuffle(cnt)
+    p = 0
+    for x in range(256):
+        for c in range(cnt[x]):
+            Ip[p] = x
+            p += 1
+    np.random.shuffle(Ip)
+    Ip = Ip.reshape(M, N)
 
-def Gaussian(A, B, x, p_start, mod=256):
-    N, M = A.shape
-    assert(N == M)
-    ### Gaussian Elimination
-    for j in range(M):
-        ### Find denominator
-        column = A[j:, j]
-        min_value = 256
-        min_position = -1
-        while True:
-            candidates = np.where(column % 2 == 1)[0]
-            if len(candidates) != 0:
-                for c in candidates:
-                    if A[j+c, j] < min_value:
-                        min_value = A[j+c, j]
-                        min_position = j+c
-                break
-            column = column // 2
-        ### All non-zero numbers are power of 2
-        if min_position == -1:
-            for i in range(j, N):
-                if A[i, j] == 0:
-                    continue
-                if A[i, j] < min_value:
-                    min_value = A[i, j]
-                    min_position = i
-        ### Move the denominator row to the top
-        A[[j, min_position]] = A[[min_position, j]]
-        B[[j, min_position]] = B[[min_position, j]]
-        ### Substract each row below with the denominator row
-        for i in range(j+1, N):
-            if A[i, j] != 0:
-                m = Q[A[i, j], A[j, j]]
-                A[i, :] = (A[i, :] - A[j, :] * m) % 256
-                B[i] = (B[i] - B[j] * m) % 256
+    return Ip
 
-    # for j in reversed(range(M)):
-    #     for i in range(j):
-    #         if A[i, j] != 0:
-    #             m = Q[A[i, j], A[j, j]]
-    #             if m == 0:
-    #                 print('NO!!!!!!!!!')
-    #             A[i, :] = (A[i, :] - A[j, :] * m) % 256
-    #             B[i] = (B[i] - B[j] * m) % 256
 
-    # x = np.zeros(M, dtype=int)
-    for j in reversed(range(p_start+1)):
-        b = (B[j] - np.dot(A[j,:], x)) % 256
-        a = A[j,j]
-        possible_solution = []
-        for i in range(256):
-            if (a * i) % 256 == b:
-                possible_solution.append(i)
-        if len(possible_solution) == 1:
-            x[j] = possible_solution[0]
+if __name__ == '__main__':
+    ### Load origin image I
+    I = cv2.imread('img/test_lena_256.bmp', cv2.IMREAD_GRAYSCALE)
+    # I = cv2.resize(I, (32, 32))
+    M, N = I.shape
+    s_I = Entropy(I)
+
+
+    X = np.zeros((N, M), dtype=int)
+    p_start = N - 1
+
+    total_round = 0
+    while p_start >= 0:
+        total_round += 1
+
+        ### Random generate Ip with same entropy of I
+        Ip = GenerateRandomImage(I)
+        s_Ip = Entropy(I)
+        ### Check the entropy of I and Ip are the same
+        if abs(s_I - s_Ip) < 1e-16:
+            print('Entropy Check: OK')
         else:
-            ### return and do next round
-            return A, B, x, j, possible_solution
+            print('Entropy Check: JIZZ')
+            exit()
+        
+        R_Ip = GetR(Ip)
+        C_Ip = Encrypt(Ip)
+        A, B = RetrieveEquations(R_Ip, C_Ip)
+        # print(R_Ip)
+        # print(C_Ip)
+        # print(A.shape)
+        # print(A)
+        # print(B.shape)
+        # print(B)
+        # exit()
 
-    return A, B, x, -1, []
-
-def RetrieveEquations(C, R):
-    (M, N) = C.shape
-    DI = np.zeros((N, N), dtype='uint8')
-    D = np.zeros(N, dtype='uint8')
-    for i in reversed(range(N)):
-        if i < N-1:
-            d = np.ceil(Entropy(R[:, i+1:])*(10**14)) % N
-            d = d.astype(int)
-        else:
-            d = 0
-        DI[i, i] = d + 1
-        DI[i, d] = 1
-        if i == 0:
-            D[i] = (C[0, i] - R[0, i]) % 256
-        else:
-            D[i] = C[0, i] - R[0, i] - (d + 1) * C[0, i-1]
-    return DI, D
-
-
-
-
-origin_img = cv2.imread('img/test_lena_256.bmp', cv2.IMREAD_GRAYSCALE)
-origin_img = cv2.resize(origin_img, (16, 16))
-# cv2.imwrite('8x8.bmp', origin_img)
-(M, N) = origin_img.shape
-
-_K = np.zeros(N, dtype=int)
-p_start = N-1
-while True:
-    random_img = GenRandomImage(origin_img)
-    # print('{:.40f}'.format(Entropy(origin_img)))
-    # print('{:.40f}'.format(Entropy(random_img)))
-
-    R_random = GetR(random_img)
-    C_random = Encrypt(random_img)
-    # print(C_random)
-
-    DI, D = RetrieveEquations(C_random, R_random)
-    # print(DI)
-    # print(D)
-
-    _A, _B, _K, p_stop, possible_solution = Gaussian(DI, D, _K, p_start)
-    # print(_A)
-    # print(_B)
-    print(_K)
-    print(p_stop)
-    print(possible_solution)
-    # print(np.dot(_A, _K) % 256)
-    # print(np.dot(_A, _K) % 256 == _B)
-
-    if p_stop == -1:
-        break
-    else:
+        A, B, X, p_stop = GaussianEliminationSolve(A, B, X, p_start)
+        # print(A)
+        # print(B)
+        print(p_stop, X)
         p_start = p_stop
 
-print('final:')
-print(_K)
-
-K = GetK(random_img)
-print(K)
-# print(np.dot(_A, K[0]) % 256 == _B)
+    print('Finished ..., take {:d} round.'.format(total_round))
+    print(X)
+    K = GetK(Ip)
+    print(K)
+    print(np.sum(X.T == K))
