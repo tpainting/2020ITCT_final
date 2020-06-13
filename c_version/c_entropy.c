@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
 				scanf("%d", &img[i][j]);
 			}
 		}
-		printf("%.40f\n", Entropy((int*)img, m, n));
+		printf("%.14lf\n", Entropy((int*)img, m, n)*1e14);
 	}
 	return 0;
 }
