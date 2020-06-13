@@ -10,13 +10,13 @@ double x_0 = 0.0056, y_0 = 0.3678, xp_0 = 0.6229, yp_0 = 0.7676;
 double mu = 0.8116;
 
 void PrintMap(int* img, int m, int n) {
-	printf("%d %d\n", m, n);
+	//printf("%d %d\n", m, n);
 	for(int i = 0; i < m; i++){
 		for(int j = 0; j < n; j++){
-			printf("%d\n", *(img+i*m+j));
+			printf("%d ", *(img+i*m+j));
 		}
 	}
-	
+    puts("");
 }
 
 void UpdateKey1(double s, double* x_bar0, double* y_bar0){
@@ -183,10 +183,12 @@ int* Encrypt(int* A, int m, int n){
 	return C;
 }
 
+int img[2000][2000];
 int main(int argc, char** argv){
 	int m, n;
+    //setvbuf(stdin, 0, 0, 0);
+    //setvbuf(stdout, 0, 0, 0);
 	while(~scanf("%d%d", &m, &n)){
-		int img[m][n];
 		for(int i = 0; i < m; i++){
 			for(int j = 0; j < n; j++){
 				scanf("%d", &img[i][j]);
