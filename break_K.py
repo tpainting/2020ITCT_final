@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from lib import *
-from encrypt import Encrypt
+from encrypt import Encrypt, FastEncrypt
 
 
 def FindSmallNumber(seq):
@@ -92,6 +92,7 @@ def RetrieveEquations(R, C):
     C_M, C_N = C.shape
     assert(R_M == C_M and R_N == C_N)
     N = R_N
+    M = R_M
 
     A = np.zeros((N, N), dtype=int)
     B = np.zeros((N, M), dtype=int)
@@ -150,6 +151,42 @@ def GetR(I):
     
     return R
 
+def GetRFromPermutation(I, up, vp):
+    # Step 1
+    (m, n) = I.shape
+    s = Entropy(I)
+
+    # x_0, y_0 = UpdateKey1(x0, y0, xp0, yp0, s)
+    # P_seq = LASM2D(mu, x_0, y_0, m*n)
+    # P = P_seq.reshape(I.shape)
+
+    # Step 2
+    # a = np.ceil((x0+y0+1)*(10**7)) % (m)
+    # b = np.ceil((xp0+yp0+2)*(10**7)) % (n)
+    # u = P[int(a), :]
+    # v = P[:, int(b)]
+    # up = np.ceil(u*(10**14)) % (n)
+    # vp = np.ceil(v*(10**14)) % (m)
+    # up = up.astype(int)
+    # vp = vp.astype(int)
+    # Uniq(up)
+    # Uniq(vp)
+    B = np.zeros(I.shape, dtype='uint8')
+    tmp = np.zeros(I.shape, dtype='uint8')
+    for i in range(n):
+        tmp[:, up[i]] = I[:, i]
+    for i in range(m):
+        B[vp[i], :] = tmp[i, :]
+    
+    # Step 3
+    W = np.zeros(I.shape, dtype='uint8')
+    for i in range(m):
+        for j in range(n):
+            W[i][j] = (m*n+(i+1)+(j+1)) % 256
+    R = (B+W) % 256
+
+    return R
+
 def GetK(I):
     (m, n) = I.shape
     xp_0, yp_0 = UpdateKey2(x0, y0, xp0, yp0)
@@ -162,26 +199,77 @@ def GetK(I):
 
 def GenerateRandomImage(I):
     M, N = I.shape
-    Ip = np.zeros(M * N, dtype=I.dtype)
-    cnt = np.zeros(256, dtype=int)
-    for x in I.flatten():
-        cnt[x] += 1
-    np.random.shuffle(cnt)
-    p = 0
-    for x in range(256):
-        for c in range(cnt[x]):
-            Ip[p] = x
-            p += 1
-    np.random.shuffle(Ip)
-    Ip = Ip.reshape(M, N)
+    s_I = Entropy(I)
+    while True:
+        Ip = np.zeros(M * N, dtype=I.dtype)
+        cnt = np.zeros(256, dtype=int)
+        for x in I.flatten():
+            cnt[x] += 1
+        np.random.shuffle(cnt)
+        p = 0
+        for x in range(256):
+            for c in range(cnt[x]):
+                Ip[p] = x
+                p += 1
+        np.random.shuffle(Ip)
+        Ip = Ip.reshape(M, N)
+        s_Ip = Entropy(Ip)
+        if abs(s_I - s_Ip) < 1e-16:
+            # print(s_I)
+            # print(s_Ip)
+            break
 
     return Ip
+
+def break_K(I, up, vp):
+    M, N = I.shape
+    s_I = Entropy(I)
+
+    X = np.zeros((N, M), dtype=int)
+    p_start = N - 1
+
+    total_round = 0
+    while p_start >= 0:
+        total_round += 1
+        ### Random generate Ip with same entropy of I
+        Ip = GenerateRandomImage(I)
+        s_Ip = Entropy(I)
+        ### Check the entropy of I and Ip are the same
+        if abs(s_I - s_Ip) < 1e-16:
+            print('Entropy Check: OK')
+        else:
+            print('Entropy Check: JIZZ')
+            exit()
+        ### Make equation system to solve
+        R_Ip_true = GetR(Ip)
+        R_Ip = GetRFromPermutation(Ip, up, vp)
+        print(np.sum(R_Ip_true == R_Ip))
+        if np.sum(R_Ip_true == R_Ip) != M * N:
+            print('Wrong R')
+            exit()
+
+        C_Ip = FastEncrypt(Ip)
+        A, B = RetrieveEquations(R_Ip, C_Ip)
+        ### Gaussian Elimination
+        A, B, X, p_stop = GaussianEliminationSolve(A, B, X, p_start)
+        print(p_stop, X)
+        p_start = p_stop
+    X = X.T
+    ### Print message when finished
+    print('break_K finished, took {:d} rounds GE to solve.'.format(total_round))
+
+    ### Check X equals to K
+    K = GetK(I)
+    print(K)
+    print(np.sum(X == K))
+
+    return X
 
 
 if __name__ == '__main__':
     ### Load origin image I
     I = cv2.imread('img/test_lena_256.bmp', cv2.IMREAD_GRAYSCALE)
-    # I = cv2.resize(I, (32, 32))
+    I = cv2.resize(I, (260, 260))
     M, N = I.shape
     s_I = Entropy(I)
 
@@ -204,7 +292,7 @@ if __name__ == '__main__':
             exit()
         
         R_Ip = GetR(Ip)
-        C_Ip = Encrypt(Ip)
+        C_Ip = FastEncrypt(Ip)
         A, B = RetrieveEquations(R_Ip, C_Ip)
         # print(R_Ip)
         # print(C_Ip)
