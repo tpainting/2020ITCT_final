@@ -185,8 +185,7 @@ int* Encrypt(int* A, int m, int n){
 
 int main(int argc, char** argv){
 	int m, n;
-	while(true){
-		scanf("%d%d", &m, &n);
+	while(~scanf("%d%d", &m, &n)){
 		int img[m][n];
 		for(int i = 0; i < m; i++){
 			for(int j = 0; j < n; j++){
