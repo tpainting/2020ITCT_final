@@ -23,16 +23,16 @@ double Entropy(int* img, int m, int n) {
 	return entropy;
 }
 
+int img[2000][2000];
 int main(int argc, char** argv) {
 	int m, n;
 	while(~scanf("%d%d", &m, &n)){
-		int img[m][n];
 		for(int i = 0; i < m; i++){
 			for(int j = 0; j < n; j++){
 				scanf("%d", &img[i][j]);
 			}
 		}
-		printf("%.20f\n", Entropy((int*)img, m, n));
+		printf("%.40f\n", Entropy((int*)img, m, n));
 	}
 	return 0;
 }
