@@ -1,8 +1,10 @@
 from lib import *
+from subprocess import *
 import numpy as np
 import cv2
 import sys
 import concurrent.futures
+from pwn import *
 
 def Work(start, end, R, n):
     d_list = []
@@ -10,6 +12,31 @@ def Work(start, end, R, n):
         d = np.ceil(Entropy(R[i+1:])*(10**14)) % n
         d_list.append(d.astype(int))
     return d_list
+
+'''
+#process = Popen(['./c_version/c_encrypt'], stdin=PIPE)
+process = Popen(['./c_version/c_encrypt'], stdin=PIPE, stdout=PIPE, bufsize=1, universal_newlines=True)
+process.stdin.write('1 1\n1\n')
+process.stdin.flush()
+'''
+from IPython import embed
+proc = process('./c_version/c_encrypt')
+def CEncrypt(A):
+    M, N = A.shape
+    proc.sendline(str(M) + ' ' + str(N))
+    data = ''
+    for r in A:
+        for c in r:
+            data += str(c) + ' '
+    proc.sendline(data)
+
+    x = proc.recvline()
+    T = np.array([int(xx) for xx in x.strip().split(b' ')])
+    T = T.reshape((M, N))
+    return T
+
+#a = np.array([[1,2],[3,4]])
+#CEncrypt(a)
 
 def FastEncrypt(A, n_pool=8):
     # Step 1
@@ -138,6 +165,9 @@ if __name__ == '__main__':
         filename = './img/test_lena_256.bmp'
     A = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
     # 2 rounds
-    C = FastEncrypt(A)
-    C = FastEncrypt(C)
+    for i in range(10):
+        #C = FastEncrypt(A)
+        #C = FastEncrypt(C)
+        C = Encrypt(A)
+        C = Encrypt(C)
     cv2.imwrite('./img/cipher.bmp', C)
