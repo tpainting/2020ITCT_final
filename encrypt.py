@@ -18,25 +18,39 @@ def Work(start, end, R, n):
 process = Popen(['./c_version/c_encrypt'], stdin=PIPE, stdout=PIPE, bufsize=1, universal_newlines=True)
 process.stdin.write('1 1\n1\n')
 process.stdin.flush()
-'''
 from IPython import embed
-# proc = process('./c_version/c_encrypt')
+proc_encrypt = process('./c_version/c_encrypt')
+proc_entropy = process('./c_version/c_entropy')
 def CEncrypt(A):
     M, N = A.shape
-    proc.sendline(str(M) + ' ' + str(N))
+    proc_encrypt.sendline(str(M) + ' ' + str(N))
     data = ''
     for r in A:
         for c in r:
             data += str(c) + ' '
-    proc.sendline(data)
+    proc_encrypt.sendline(data)
 
-    x = proc.recvline()
-    T = np.array([int(xx) for xx in x.strip().split(b' ')])
+    x = proc_encrypt.recvline()
+    T = np.array([int(xx) for xx in x.strip().split(b' ')], dtype='uint8')
     T = T.reshape((M, N))
     return T
 
+def CEntropy(A):
+    M, N = A.shape
+    proc_entropy.sendline(str(M) + ' ' + str(N))
+    data = ''
+    for r in A:
+        for c in r:
+            data += str(c) + ' '
+    proc_entropy.sendline(data)
+
+    x = proc_entropy.recvline()
+    return float(x)
+
+
 #a = np.array([[1,2],[3,4]])
 #CEncrypt(a)
+'''
 
 def FastEncrypt(A, n_pool=8):
     # Step 1
