@@ -20,7 +20,7 @@ process.stdin.write('1 1\n1\n')
 process.stdin.flush()
 '''
 from IPython import embed
-proc = process('./c_version/c_encrypt')
+# proc = process('./c_version/c_encrypt')
 def CEncrypt(A):
     M, N = A.shape
     proc.sendline(str(M) + ' ' + str(N))
